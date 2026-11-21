@@ -1,9 +1,11 @@
 ﻿$ErrorActionPreference = 'Stop'
-Add-Type -Name SettingsDpi -Namespace JellyShips -MemberDefinition @'
+if (!('JellyShips.SettingsDpi' -as [type])) {
+    Add-Type -Name SettingsDpi -Namespace JellyShips -MemberDefinition @'
 [System.Runtime.InteropServices.DllImport("user32.dll")]
 public static extern bool SetProcessDPIAware();
 '@
-[void][JellyShips.SettingsDpi]::SetProcessDPIAware()
+    [void][JellyShips.SettingsDpi]::SetProcessDPIAware()
+}
 Add-Type -AssemblyName System.Windows.Forms
 [Windows.Forms.Application]::EnableVisualStyles()
 
@@ -40,15 +42,12 @@ try {
     }
     $sequence = Read-BeatSequence $path
     $saved = @(Get-BeatAmplitudes $sequence)
-    $settingsFile = Join-Path $PSScriptRoot 'settings.txt'
-    $enabled = (Test-Path -LiteralPath $settingsFile -PathType Leaf) -and
-        ((Get-Item -LiteralPath $settingsFile).Length -le 128) -and
-        (([string](Get-Content -LiteralPath $settingsFile -Raw -Encoding UTF8)).Trim() -ceq 'enabled=true')
+    $enabled = Test-ModEffectEnabled
     [object[]]$musicTracks = @(Read-BuiltInMusicTracks)
     if (!$musicTracks) { $hasMusic = $false }
     if ($hasMusic) { $musicTracks += @(Read-UserMusicTracks) }
     $musicPreferences = Read-GameMusicJson $gameMusicPrefs
-    $profileLibrary = Read-PlayerProfiles $sequence $enabled $effectMode $musicTracks $musicPreferences
+    $profileLibrary = Read-PlayerProfiles $sequence $effectMode $musicTracks $musicPreferences
     if (![IO.File]::Exists($profileFile)) { Write-GameMusicJson $profileFile $profileLibrary 7 }
     if ($launcherSession) {
         try { Save-PlayerSettings $launcherSession }
@@ -67,11 +66,14 @@ $header.Dock = 'Top'
 $title = New-SettingsControl $header Label '莱斯塔-保持Q弹' 22 13 228 40
 $title.Font = [Drawing.Font]::new($form.Font.FontFamily, 17, [Drawing.FontStyle]::Bold)
 $title.TextAlign = 'MiddleLeft'
+$enableBox = New-SettingsControl $header CheckBox '启用mod效果' 252 18 150 30
+$enableBox.Font = [Drawing.Font]::new($form.Font.FontFamily, 11, [Drawing.FontStyle]::Bold)
+$enableBox.ForeColor = $accent
+$enableBox.Checked = $enabled
 $profileLabel = New-SettingsControl $header Label '当前方案' 434 18 72 30
 $profileLabel.TextAlign = 'MiddleRight'
-$profileLabel.Anchor = 'Top, Right'
 $profileList = New-SettingsControl $header ComboBox '' 518 20 218 29
-$profileList.Anchor = 'Top, Right'
+$profileList.Anchor = 'Top, Left, Right'
 $profileList.DropDownWidth = 440
 $profileList.DropDownStyle = 'DropDownList'
 $profileList.AccessibleName = '当前方案'
@@ -306,10 +308,8 @@ function Update-InputErrors {
     Update-HeightEditor
 }
 
-$enableBox = New-SettingsControl $animation CheckBox '启动保持Q弹' 0 312 155 28
-$enableBox.Checked = $enabled
 if ($hasEffects) {
-    $wakeBox = New-SettingsControl $animation CheckBox '显示航迹效果' 178 312 150 28
+    $wakeBox = New-SettingsControl $animation CheckBox '显示航迹效果' 0 312 150 28
     $wakeBox.Checked = $effectMode[1] -eq '1'
 }
 $status = New-SettingsControl $footer Label '退出游戏后应用' 22 12 447 34
@@ -467,12 +467,14 @@ $apply.Add_Click({
             $status.Text = '正在应用设置…'
             $status.Refresh()
             $values = @($draft.Values | ForEach-Object { $_.ToString('R', $beatCulture) })
-            Save-EffectDraft $path $values $heightGraph.Motion $draft.Effects $beat.bpm $draft.Enabled $appliedMusic
+            Save-EffectDraft $path $values $heightGraph.Motion $draft.Effects $beat.bpm $enableBox.Checked $appliedMusic
+            $script:enabled = $enableBox.Checked
         } else {
             Save-BeatAmplitudes $path @($rows | ForEach-Object { $_.Field.Text }) $heightGraph.Motion $beat.bpm
             if ($appliedMusic) { Write-GameMusicJson $gameMusicPrefs $appliedMusic }
         }
         $script:musicPreferences = $appliedMusic
+        if ($hasMusic -and $musicInstall) { Sync-GameMusicMonitor }
         if ($launcherSession) { Save-PlayerSettings $launcherSession }
         $status.Text = "已应用「$($draft.Name)」。下次启动游戏生效。"
         if ($hasMusic -and $musicInstall) {

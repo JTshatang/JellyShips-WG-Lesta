@@ -1,9 +1,10 @@
 ﻿New-SettingsHeading $musicPage '播放设置' 20 12 125
 [void](New-SettingsControl $musicPage Label '播放时机' 20 50 106 24)
-$musicTrigger = New-SettingsControl $musicPage Panel '' 144 42 350 30
+$musicTrigger = New-SettingsControl $musicPage Panel '' 144 42 460 30
 $musicTrigger.AccessibleName = '播放时机'
 $manualTrigger = New-SettingsControl $musicTrigger RadioButton '手动' 0 0 98 30
-$battleTrigger = New-SettingsControl $musicTrigger RadioButton '成功进入战斗' 110 0 168 30
+$battleTrigger = New-SettingsControl $musicTrigger RadioButton '成功进入战斗' 110 0 144 30
+$silentTrigger = New-SettingsControl $musicTrigger RadioButton '不播放音乐' 268 0 138 30
 [void](New-SettingsControl $musicPage Label '重复方式' 20 88 106 24)
 $musicMode = New-SettingsControl $musicPage Panel '' 144 80 350 30
 $musicMode.AccessibleName = '重复方式'
@@ -39,8 +40,8 @@ $musicKeyHint = New-SettingsControl $musicPage Label '' 144 280 520 23
 $musicKeyHint.ForeColor = [Drawing.Color]::Firebrick
 $musicKeyHint.UseMnemonic = $false
 
-New-SettingsHeading $musicPage '本次游戏音乐' 20 321 125
-$musicStatus = New-SettingsControl $musicPage Label '尚未启用' 144 321 520 25
+New-SettingsHeading $musicPage '播放状态' 20 321 125
+$musicStatus = New-SettingsControl $musicPage Label '' 144 321 520 25
 $musicStatus.AutoEllipsis = $true
 $musicStatus.Add_TextChanged({ $statusTips.SetToolTip($musicStatus, $musicStatus.Text) })
 $musicPause = New-SettingsControl $musicPage Button '暂停／恢复' 144 355 106 31
@@ -48,8 +49,6 @@ $musicPause.Enabled = $false
 $musicPlay = New-SettingsControl $musicPage Button '重头播放' 258 355 102 31
 $musicPlay.Enabled = $false
 $statusTips.SetToolTip($musicPlay, '对齐本舰拍点，从歌曲开头播放')
-$musicSession = New-SettingsControl $musicPage Button '启用本次游戏音乐' 380 355 152 31
-$statusTips.SetToolTip($musicSession, '可先启用再打开游戏。关闭设置后继续，退出游戏时结束。')
 
 $musicCapture = [MusicHotkeyCapture]::new($form)
 $musicBindingUI = @{ Target = $null }
@@ -143,36 +142,50 @@ $musicVolume.Add_ValueChanged({
 })
 if (!$musicInstall) {
     $musicStatus.Text = '尚未连接游戏'
-    $musicSession.Enabled = $false
     return
 }
 $musicUI = @{
-    Error = ''; Host = $null; SessionId = ''
+    Error = ''; Host = $null
     Pending = ''; Sent = $null; KeyConflicts = 0
 }
 
+function Sync-GameMusicMonitor {
+    $musicUI.Error = ''
+    try {
+        if ($enabled -and (Test-GameMusicPlayback $musicPreferences)) {
+            if ($musicUI.Host -and !$musicUI.Host.HasExited) { return }
+            if ($musicUI.Host) { $musicUI.Host.Dispose(); $musicUI.Host = $null }
+            $musicUI.Host = Start-GameMusicMonitor
+        } else {
+            # Finish stopping before a subsequent Apply can re-enable playback.
+            $view = Read-LiveGameMusicStatus
+            $hostProcess = if ($view) { Get-Process -Id $view.pid -ErrorAction SilentlyContinue }
+            try {
+                if ($hostProcess) { [void]$hostProcess.WaitForExit(2000) }
+                elseif ($musicUI.Host) { [void]$musicUI.Host.WaitForExit(2000) }
+            } finally { if ($hostProcess) { $hostProcess.Dispose() } }
+        }
+    } catch { $musicUI.Error = $_.Exception.Message }
+}
+
 function Show-GameMusicState {
-    $songless = Test-SonglessMusic $musicPreferences
+    $playback = $enabled -and (Test-GameMusicPlayback $musicPreferences)
     $view = Read-LiveGameMusicStatus
     if ($musicUI.Host -and $musicUI.Host.HasExited) {
+        $last = Read-GameMusicJson $gameMusicStatus
+        if ($last.pid -eq $musicUI.Host.Id -and $last.state -eq 'Unavailable') { $musicUI.Error = $last.error }
         $musicUI.Host.Dispose()
         $musicUI.Host = $null
-        $last = Read-GameMusicJson $gameMusicStatus
-        if ($last.token -ceq $musicUI.SessionId -and $last.state -eq 'Unavailable') { $musicUI.Error = $last.error }
     }
-    $token = if ($view) { $view.token } elseif ($musicUI.Host) { $musicUI.SessionId }
-    $ending = $token -and [IO.File]::Exists((Get-MusicSessionEndFile $token))
-    $musicSession.Tag = $token
-    $musicSession.Text = if ($token) { '结束本次游戏音乐' } else { '启用本次游戏音乐' }
-    $musicSession.Enabled = !$ending -and ($token -or !$songless)
-    if (!$view -or $ending -or $songless) { $musicUI.Pending = ''; $musicUI.Sent = $null }
-    if ($musicUI.Sent -and ($musicUI.Sent.id -ceq $view.ack -or $musicUI.Sent.token -cne $view.token)) {
+    if (!$view.client -or !$playback) { $musicUI.Pending = ''; $musicUI.Sent = $null }
+    if ($musicUI.Sent -and ($musicUI.Sent.id -ceq $view.ack -or
+            $musicUI.Sent.token -cne $view.token -or $musicUI.Sent.client -cne $view.client)) {
         $musicUI.Sent = $null
     }
     if ($musicUI.Pending -and !$musicUI.Sent -and $view -and $view.state -ne 'Unavailable') {
         try {
             $message = @{
-                id = [Guid]::NewGuid().ToString('N'); token = $view.token; action = $musicUI.Pending
+                id = [Guid]::NewGuid().ToString('N'); token = $view.token; client = $view.client; action = $musicUI.Pending
             }
             Write-GameMusicJson $gameMusicCommand $message
             $musicUI.Sent = $message
@@ -186,7 +199,7 @@ function Show-GameMusicState {
         Update-MusicHotkeyErrors
     }
     $current = if ($view) { $view.state } else { 'Stopped' }
-    $musicPlay.Enabled = !$ending -and !$songless -and $profileUI.HasSong -and $null -ne $view.beat -and $current -ne 'Unavailable'
+    $musicPlay.Enabled = $playback -and $profileUI.HasSong -and $null -ne $view.beat -and $current -ne 'Unavailable'
     $musicPause.Enabled = $musicPlay.Enabled -and $current -in 'Waiting', 'Playing', 'BetweenRepeats', 'Resuming', 'Paused'
     $label = switch ($current) {
         'AwaitingBeat' { '等待本舰拍点' }
@@ -201,33 +214,19 @@ function Show-GameMusicState {
         'Unavailable' { "播放器无法启动。$($view.error)" }
         default { '已停止' }
     }
-    $musicStatus.Text = if ($ending) { '正在结束本次游戏音乐…' }
+    $musicStatus.Text = if (!$enabled) { 'Mod 效果已停用' }
+        elseif (Test-SonglessMusic $musicPreferences) { '已应用无歌方案' }
+        elseif (!$playback) { '不播放音乐' }
         elseif ($musicUI.Error) { $musicUI.Error }
-        elseif ($songless) { '已应用无歌方案' }
-        elseif (!$token) { '尚未启用' }
-        elseif (!$view -or $view.state -eq 'Starting') { '正在启用…' }
-        elseif (!$view.client) { '已启用，等待游戏启动' }
+        elseif ($current -eq 'Unavailable') { $label }
+        elseif ($current -eq 'Starting' -or (!$view -and $musicUI.Host)) { '正在准备播放器…' }
+        elseif (!$view) { '播放器未运行' }
+        elseif (!$view.client) { '等待游戏启动' }
         elseif ($musicUI.Pending -and $current -ne 'Unavailable') { '等待播放器…' }
         elseif ($current -eq 'Stopped' -and $null -eq $view.beat) { '等待本舰拍点' }
         else { $label }
 }
 
-$musicSession.Add_Click({
-    try {
-        $musicUI.Error = ''
-        if ($musicSession.Tag) {
-            [IO.File]::WriteAllText((Get-MusicSessionEndFile $musicSession.Tag), '')
-        } else {
-            [void][IO.Directory]::CreateDirectory($gameMusicRuntime)
-            $musicUI.SessionId = [Guid]::NewGuid().ToString('N')
-            $launch = [Diagnostics.ProcessStartInfo]::new($gameMusicWindowsPowerShell, ($gameMusicHostArgs + ' -SessionId ' + $musicUI.SessionId))
-            $launch.UseShellExecute = $false
-            $launch.CreateNoWindow = $true
-            $musicUI.Host = [Diagnostics.Process]::Start($launch)
-        }
-    } catch { $musicUI.Error = $_.Exception.Message }
-    Show-GameMusicState
-})
 $musicPlay.Add_Click({
     try {
         $musicUI.Pending = 'Play'
@@ -243,4 +242,5 @@ $musicTimer.Interval = 100
 $musicTimer.Add_Tick({ Show-GameMusicState })
 $musicTimer.Start()
 $form.Add_FormClosed({ if ($musicUI.Host) { $musicUI.Host.Dispose(); $musicUI.Host = $null } })
+if ($enabled -and (Test-GameMusicPlayback $musicPreferences)) { Sync-GameMusicMonitor }
 Show-GameMusicState

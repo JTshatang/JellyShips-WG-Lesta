@@ -35,6 +35,7 @@ function Import-SongBeatAnalyzer {
 function Get-MusicTrigger($value) {
     # Older profiles used Game for automatic playback.
     if ($value -cin 'Battle', 'Game') { return 'Battle' }
+    if ($value -ceq 'Silent') { return 'Silent' }
     return 'Manual'
 }
 
@@ -71,6 +72,16 @@ function Read-GameMusicJson($file) {
 
 function Test-SonglessMusic($preferences) {
     return $preferences.songless -is [bool] -and $preferences.songless
+}
+
+function Test-GameMusicPlayback($preferences) {
+    return !(Test-SonglessMusic $preferences) -and (Get-MusicTrigger $preferences.trigger) -cne 'Silent'
+}
+
+function Test-ModEffectEnabled {
+    $file = [IO.FileInfo]::new((Join-Path $PSScriptRoot 'settings.txt'))
+    return $file.Exists -and $file.Length -le 128 -and
+        [IO.File]::ReadAllText($file.FullName).Trim() -ceq 'enabled=true'
 }
 
 function Get-ConfiguredMusicTrackId($preferences, [string]$defaultTrack) {
@@ -228,7 +239,12 @@ function Get-GameMusicClientPath {
     return @{ Exe = $exe; Log = Join-Path $root 'profile\python.log' }
 }
 
-function Get-MusicSessionEndFile([string]$sessionId) {
-    if ($sessionId -cnotmatch '^[0-9a-f]{32}$') { throw '音乐会话标识无效。' }
-    return (Join-Path $gameMusicRuntime "end-$sessionId.request")
+function Start-GameMusicMonitor {
+    if (!(Test-ModEffectEnabled) -or !(Test-GameMusicPlayback (Read-GameMusicJson $gameMusicPrefs)) -or
+        !(Get-GameMusicClientPath) -or (Read-LiveGameMusicStatus)) { return }
+    $sessionId = [Guid]::NewGuid().ToString('N')
+    $launch = [Diagnostics.ProcessStartInfo]::new($gameMusicWindowsPowerShell, ($gameMusicHostArgs + ' -SessionId ' + $sessionId))
+    $launch.UseShellExecute = $false
+    $launch.CreateNoWindow = $true
+    return [Diagnostics.Process]::Start($launch)
 }

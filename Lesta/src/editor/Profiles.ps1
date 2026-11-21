@@ -1,6 +1,6 @@
 ﻿$profileFile = Join-Path $PSScriptRoot 'profiles.json'
 
-function Read-PlayerProfiles($sequence, [bool]$enabled, [string]$effects, $tracks, $preferences) {
+function Read-PlayerProfiles($sequence, [string]$effects, $tracks, $preferences) {
     $songs = @($tracks | Where-Object id -CNotLike 'user-*')
     if ([IO.File]::Exists($profileFile)) {
         $library = [IO.File]::ReadAllText($profileFile) | ConvertFrom-Json
@@ -22,7 +22,7 @@ function Read-PlayerProfiles($sequence, [bool]$enabled, [string]$effects, $track
             if (!$builtIn) { $builtIn = $matches | Select-Object -First 1 }
             if (!$builtIn) {
                 $name = Get-AvailableProfileName $song.title $library.Profiles.Name
-                $builtIn = New-PlayerProfile $name $song.id ([HeightCurve]::Default()) $beatDefaults $true '11' $null $true
+                $builtIn = New-PlayerProfile $name $song.id ([HeightCurve]::Default()) $beatDefaults '11' $null $true
                 $library.Profiles += $builtIn
             } else { $builtIn | Add-Member -NotePropertyName BuiltIn -NotePropertyValue $true }
         }
@@ -41,7 +41,7 @@ function Read-PlayerProfiles($sequence, [bool]$enabled, [string]$effects, $track
     $profiles = @(foreach ($song in $songs) {
         $applied = if ($song.id -ceq $track) { $preferences }
         $builtIn = $song.id -and $song.id -cnotlike 'user-*'
-        $profile = New-PlayerProfile $song.title $song.id $sequence.Curve @(Get-BeatAmplitudes $sequence) $enabled $effects $applied $builtIn
+        $profile = New-PlayerProfile $song.title $song.id $sequence.Curve @(Get-BeatAmplitudes $sequence) $effects $applied $builtIn
         if (Test-SonglessMusic $applied) { $profile.ManualBpm = (Get-SongBeat $null $applied).bpm }
         $profile
     })
@@ -49,10 +49,10 @@ function Read-PlayerProfiles($sequence, [bool]$enabled, [string]$effects, $track
     return [pscustomobject]@{ Selected = $selected.Id; Profiles = $profiles }
 }
 
-function New-PlayerProfile($name, $track, $motion, $values, $enabled, $effects, $preferences, [bool]$builtIn) {
+function New-PlayerProfile($name, $track, $motion, $values, $effects, $preferences, [bool]$builtIn) {
     [pscustomobject]((Get-ShipMotionSettings $motion) + @{
         Id = [Guid]::NewGuid().ToString('N'); Name = $name; BuiltIn = $builtIn
-        Values = $values; Enabled = $enabled; Effects = $effects; ManualBpm = $null
+        Values = $values; Effects = $effects; ManualBpm = $null
         Music = @{
             track = $track
             mode = if ($preferences.mode -ceq 'loop') { 'loop' } else { 'once' }
@@ -72,7 +72,7 @@ function Get-AppliedMusicProfile {
     $curve = Get-ShipMotionSettings $sequence.Curve | ConvertTo-Json -Depth 4 -Compress
     $matches = @($profileLibrary.Profiles | Where-Object {
         $_.Music.track -ceq $track -and $_.Music.mode -ceq $mode -and $_.Music.trigger -ceq $trigger -and
-        $_.Enabled -eq $enabled -and $_.Effects -ceq $effectMode -and
+        $_.Effects -ceq $effectMode -and
         ($_.Values -join '|') -ceq ($saved -join '|') -and
         ((Get-ShipMotionSettings (Read-ShipMotion $_)) | ConvertTo-Json -Depth 4 -Compress) -ceq $curve
     })
@@ -144,7 +144,7 @@ function Get-ProfileDraft {
         @{
             track = $current.Music.track
             mode = if ($loopMode.Checked) { 'loop' } else { 'once' }
-            trigger = if ($battleTrigger.Checked) { 'Battle' } else { 'Manual' }
+            trigger = if ($battleTrigger.Checked) { 'Battle' } elseif ($silentTrigger.Checked) { 'Silent' } else { 'Manual' }
             volume = [int]$musicVolume.Value
             pauseKey = $pauseKey
             playKey = $playKey
@@ -159,7 +159,7 @@ function Get-ProfileDraft {
     return [pscustomobject]((Get-ShipMotionSettings $heightGraph.Motion) + @{
         Id = $current.Id; Name = $name; BuiltIn = $current.BuiltIn
         Values = [double[]]$values; Music = $music; ManualBpm = $manualBpm
-        Enabled = $enableBox.Checked; Effects = $effects
+        Effects = $effects
     })
 }
 
@@ -203,7 +203,6 @@ function Show-ProfileDraft([int]$index) {
         for ($i = 0; $i -lt $rows.Count; $i++) {
             $rows[$i].Field.Text = Format-BeatPercent $draft.Values[$i]
         }
-        $enableBox.Checked = $draft.Enabled
         if ($hasEffects) {
             $wakeBox.Checked = $draft.Effects[1] -eq '1'
         }
@@ -214,8 +213,10 @@ function Show-ProfileDraft([int]$index) {
             $errors.SetError($profileBpm, '')
             $loopMode.Checked = $draft.Music.mode -ceq 'loop'
             $onceMode.Checked = !$loopMode.Checked
-            $battleTrigger.Checked = $draft.Music.trigger -ceq 'Battle'
-            $manualTrigger.Checked = !$battleTrigger.Checked
+            $trigger = Get-MusicTrigger $draft.Music.trigger
+            $battleTrigger.Checked = $trigger -ceq 'Battle'
+            $silentTrigger.Checked = $trigger -ceq 'Silent'
+            $manualTrigger.Checked = $trigger -ceq 'Manual'
             $applied = Test-AppliedProfileSong $draft (Get-AppliedMusicProfile)
             $volume = if ($applied -and $null -ne $musicPreferences.volume) { $musicPreferences.volume }
                 else { $draft.Music.volume }
@@ -239,7 +240,7 @@ function Add-EmptyProfile {
     $current = Get-ProfileDraft
     $names = @($profileUI.Drafts.Name) + @($profileLibrary.Profiles.Name) + @($current.Name)
     $name = Get-AvailableProfileName '新方案' $names
-    $draft = New-PlayerProfile $name $null ([HeightCurve]::Default()) $beatDefaults $true '11' $null $false
+    $draft = New-PlayerProfile $name $null ([HeightCurve]::Default()) $beatDefaults '11' $null $false
     Write-ProfileDraft $draft
     $profileUI.Drafts[$profileUI.Index] = $current
     $profileUI.Drafts.Add($draft)

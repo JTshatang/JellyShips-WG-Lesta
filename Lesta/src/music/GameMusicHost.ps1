@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 if ($SessionId -cnotmatch '^[0-9a-f]{32}$') { return }
 . (Join-Path $PSScriptRoot 'GameMusicFiles.ps1')
 $install = Get-GameMusicClientPath
-if (!$install) { return }
+if (!$install -or !(Test-ModEffectEnabled) -or !(Test-GameMusicPlayback (Read-GameMusicJson $gameMusicPrefs))) { return }
 
 [void][IO.Directory]::CreateDirectory($gameMusicRuntime)
 try {
@@ -14,12 +14,10 @@ $player = $null
 $hotkeys = $null
 $client = $null
 $token = $SessionId
-$endSession = Get-MusicSessionEndFile $token
 $startTicks = [Diagnostics.Process]::GetCurrentProcess().StartTime.ToUniversalTime().Ticks
 $status = @{ token = $token; pid = $PID; startTicks = $startTicks; client = ''; scene = 0; beat = $null; ack = ''; state = 'Starting'; error = '' }
 try {
     Write-GameMusicJson $gameMusicStatus $status
-    if ([IO.File]::Exists($endSession)) { return }
     [object[]]$tracks = @(Read-BuiltInMusicTracks)
     if (!$tracks) { throw '找不到随包歌曲。' }
     Import-MusicPlayer @('GameMusic.cs')
@@ -33,22 +31,35 @@ try {
     $trackError = ''
     $lastState = ''
     $lastPublish = [DateTime]::MinValue
-    $nextScan = [DateTime]::MinValue
+    $nextBuildCheck = [DateTime]::MinValue
     $reader = $null
     $prefs = $null
     $sessionPath = Join-Path $gameMusicRuntime 'session.json'
     $uninstallSignal = Join-Path $PSScriptRoot 'uninstall.request'
-    while (![IO.File]::Exists($uninstallSignal) -and ![IO.File]::Exists($endSession)) {
-        if ($client -and $client.HasExited) { break }
+    while (![IO.File]::Exists($uninstallSignal)) {
+        if ($client -and $client.HasExited) {
+            $client.Dispose()
+            $client = $null
+            $reader = $null
+            $identity = ''
+            [void]$session.Observe($null, 0, $null)
+            $pauseCue = $null
+            $trackError = ''
+            $player.Stop()
+        }
         $now = [DateTime]::UtcNow
         $preferenceUpdate = Read-GameMusicJson $gameMusicPrefs
         if ($preferenceUpdate) { $prefs = $preferenceUpdate }
+        if (!(Test-ModEffectEnabled) -or !(Test-GameMusicPlayback $prefs)) { break }
         $trackId = Get-ConfiguredMusicTrackId $prefs $tracks[0].id
-        $session.Mode = if ($trackId) { Get-MusicTrigger $prefs.trigger } else { 'Manual' }
+        $session.Mode = Get-MusicTrigger $prefs.trigger
         $loop = $prefs.mode -ceq 'loop'
 
-        if (!$client -and $now -ge $nextScan) {
-            $nextScan = $now.AddMilliseconds(250)
+        if (!$client) {
+            if ($now -ge $nextBuildCheck) {
+                if (!(Get-GameMusicClientPath)) { break }
+                $nextBuildCheck = $now.AddSeconds(5)
+            }
             $client = Get-Process -Name Korabli64 -ErrorAction SilentlyContinue |
                 Where-Object { $_.Path -eq $install.Exe } | Select-Object -First 1
             if ($client) {
@@ -101,7 +112,7 @@ try {
         $saveSession = $false
         $actions = @()
         $command = Read-GameMusicJson $gameMusicCommand
-        if ($command.token -ceq $token -and $command.id -cne $status.ack) {
+        if ($client -and $command.client -ceq $identity -and $command.token -ceq $token -and $command.id -cne $status.ack) {
             if ($trackId) { $actions += $command.action }
             $status.ack = $command.id
         }
@@ -179,7 +190,7 @@ try {
             }
         }
 
-        Start-Sleep -Milliseconds $(if ($client) { 30 } else { 200 })
+        Start-Sleep -Milliseconds $(if ($client) { 30 } else { 500 })
     }
 } catch {
     $status.state = 'Unavailable'
@@ -195,7 +206,6 @@ try {
     }
     if ($client) { $client.Dispose() }
     try {
-        [IO.File]::Delete($endSession)
         [IO.File]::Delete($gameMusicCommand)
         if ($status.state -ne 'Unavailable') { [IO.File]::Delete($gameMusicStatus) }
     } finally { $hostLock.Dispose() }

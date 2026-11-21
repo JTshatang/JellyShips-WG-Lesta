@@ -32,6 +32,11 @@ function Start-LauncherMaintenance([string]$options) {
 }
 
 if ($MyInvocation.InvocationName -eq '.') { return }
+Add-Type -Name SettingsDpi -Namespace JellyShips -MemberDefinition @'
+[System.Runtime.InteropServices.DllImport("user32.dll")]
+public static extern bool SetProcessDPIAware();
+'@
+[void][JellyShips.SettingsDpi]::SetProcessDPIAware()
 Add-Type -AssemblyName System.Windows.Forms
 [Windows.Forms.Application]::EnableVisualStyles()
 $gate = $null
@@ -80,7 +85,20 @@ try {
             if ($candidate) {
                 Install-PendingProgram $layout $candidate $portal
                 Clear-PendingPlayerUpdate $portal $candidate
-                if (!$FinishUpdate) { $reopen = Join-Path $layout.Portal "$playerBrand.exe" }
+                if ($FinishUpdate) {
+                    $musicFiles = Join-Path $layout.Mod 'GameMusicFiles.ps1'
+                    if ([IO.File]::Exists($musicFiles)) {
+                        try {
+                            . $musicFiles
+                            if (Get-Command Start-GameMusicMonitor -ErrorAction SilentlyContinue) {
+                                $monitor = Start-GameMusicMonitor
+                                if ($monitor) { $monitor.Dispose() }
+                            }
+                        } catch {
+                            [void][Windows.Forms.MessageBox]::Show('音乐模块出了点小问题，请退出重新打开软件',$playerBrand)
+                        }
+                    }
+                } else { $reopen = Join-Path $layout.Portal "$playerBrand.exe" }
             }
         } catch {
             $failedUpdate = $true
