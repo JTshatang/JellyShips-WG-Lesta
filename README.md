@@ -4,8 +4,8 @@
 
 | 游戏客户端 | 下载 | 使用说明 |
 | --- | --- | --- |
-| **WG服** | [下载WG版](https://github.com/kekaotongzhi-glitch/JellyShips-WG-Lesta/releases/download/wg/JellyShips-WG.zip) | [安装与设置](WG/README.md) |
-| **Lesta服** | [下载莱服版](https://github.com/kekaotongzhi-glitch/JellyShips-WG-Lesta/releases/tag/lesta-26.11.0) | [安装与设置](Lesta/README.md) |
+| **WG服** | [下载WG版](https://github.com/JellyWarships/JellyShips-WG-Lesta/releases/download/wg/JellyShips-WG.zip) | [安装与设置](WG/README.md) |
+| **Lesta服** | [下载莱服版](https://github.com/JellyWarships/JellyShips-WG-Lesta/releases/tag/lesta-26.11.1) | [安装与设置](Lesta/README.md) |
 
 原曲的DJ版在多个段落有节拍跳变，仓库里的两份音频已剪辑并按130BPM对齐节拍，目前用于Lesta版（2026.11.21）。[朋友的酒（DJ版）](朋友的酒（DJ版）.mp3)、[邦友的酒](邦友的酒.flac)
 

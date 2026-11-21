@@ -2,7 +2,7 @@
 
 ## 反馈问题
 
-在[Issues](https://github.com/kekaotongzhi-glitch/JellyShips-WG-Lesta/issues/new)说明使用的是WG版还是莱服版，附上游戏的完整构建号、安装包文件名和复现步骤。舰船动画相关问题请注明舰名、船体或涂装，以及出问题的场景。有截图或短视频时可以一起附上。
+在[Issues](https://github.com/JellyWarships/JellyShips-WG-Lesta/issues/new)说明使用的是WG版还是莱服版，附上游戏的完整构建号、安装包文件名和复现步骤。舰船动画相关问题请注明舰名、船体或涂装，以及出问题的场景。有截图或短视频时可以一起附上。
 
 ## 提交修改
 
