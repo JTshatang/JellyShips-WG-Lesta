@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-115 -151 230 173" role="img" aria-label="战列舰舰艏正视示意，静水面经过原点">
+  <title>舰艏正视示意</title>
+  <!-- 船体纵向中面 x=0，静水面 y=0。此组内只含随船缩放的图形。 -->
+  <g id="bow-shape" stroke-linejoin="round">
+    <!-- 桅杆、桁架与测距仪 -->
+    <path d="M-2 -144H2V-96H-2Z M-22 -131H22V-128H-22Z M-11 -139H11V-137H-11Z" fill="#48545b"/>
+    <path d="M-12 -101L0 -129L12 -101 M-19 -104L0 -124L19 -104" fill="none" stroke="#68757b" stroke-width="2"/>
+    <path d="M-11 -112H11V-105H-11Z M-16 -109H16V-106H-16Z" fill="#48545b"/>
+    <!-- 阶梯舰桥、投影面及观察窗 -->
+    <path d="M-31 -45L-26 -77H-17V-99L-13 -104H13L17 -99V-77H26L31 -45Z" fill="#849094"/>
+    <path d="M0 -104H13L17 -99V-77H26L31 -45H0Z" fill="#6d797e"/>
+    <path d="M-22 -99H22V-94H-22Z M-27 -81H27V-77H-27Z" fill="#505c63"/>
+    <path d="M-13 -91H-5V-87H-13Z M-3 -91H3V-87H-3Z M5 -91H13V-87H5Z" fill="#39454c"/>
+    <path d="M-30 -74L-23 -77H23L30 -74V-70H-30Z" fill="#a5adb0"/>
+    <!-- 前部主炮，三个炮口面对观察者 -->
+    <path d="M-34 -49L-28 -62L-21 -66H21L28 -62L34 -49V-39H-34Z" fill="#59656b"/>
+    <path d="M-34 -49L-24 -59H24L34 -49Z" fill="#b5bdbe"/>
+    <path d="M-24 -59H24L30 -49H-30Z" fill="#879296"/>
+    <g fill="#3c484f" stroke="#b0b9bb" stroke-width="2">
+      <circle cx="-14" cy="-53" r="4.3"/><circle cx="0" cy="-53" r="4.3"/><circle cx="14" cy="-53" r="4.3"/>
+    </g>
+    <!-- 两舷沿甲板向中间上扬，在舰艏棱线交会。 -->
+    <path d="M-78 -33L-49 -40L-27 -45L0 -51L27 -45L49 -40L78 -33L51 -9L31 9L0 18L-31 9L-51 -9Z" fill="#758188"/>
+    <path d="M0 -51L27 -45L49 -40L78 -33L51 -9L31 9L0 18Z" fill="#57646b"/>
+    <path d="M-78 -33L-46 -37L0 -49L46 -37L78 -33L49 -40L26 -46L0 -54L-26 -46L-49 -40Z" fill="#c1c8c9"/>
+    <path d="M-51 -9L-28 2L0 7L28 2L51 -9L31 9L0 18L-31 9Z" fill="#455158"/>
+    <path d="M0 -49V6" fill="none" stroke="#69757a" stroke-width="1.3"/>
+  </g>
+</svg>

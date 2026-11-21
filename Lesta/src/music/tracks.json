@@ -1,0 +1,20 @@
+[
+  {
+    "id": "bangyou",
+    "title": "邦友的酒",
+    "source": "Bangyou-joined-matched.flac",
+    "sha256": "c2d39a8cb3458953cafbc80bd3b827b42c1fd03359082314d4b1fba298149d21",
+    "frames": 9069112,
+    "bpm": 130,
+    "drumFrame": 24144
+  },
+  {
+    "id": "friends-dj",
+    "title": "朋友的酒（DJ版）",
+    "source": "Friends-DJ-130BPM-E-phrase-join.mp3",
+    "sha256": "877b8d7f6a673b882b6e4db9cecf0c2e343d8ae10ee90fd573878f424e5d3bd5",
+    "frames": 14228529,
+    "bpm": 130,
+    "drumFrame": 22080
+  }
+]

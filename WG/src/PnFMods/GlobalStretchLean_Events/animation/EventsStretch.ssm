@@ -1,0 +1,12 @@
+<Stretch.ssm>
+	<params>
+	</params>
+	<node>
+		<name>	EventsStretch	</name>
+		<type>	sequence	</type>
+		<resource>	PnFMods/GlobalStretchLean_Events/animation/EventsStretch.seq	</resource>
+		<isLoop>	true	</isLoop>
+		<loop>	-1	</loop>
+		<uiPosition>	0.0000 0.0000 0.0000	</uiPosition>
+	</node>
+</Stretch.ssm>

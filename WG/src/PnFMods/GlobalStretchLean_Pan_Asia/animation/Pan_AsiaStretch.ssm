@@ -1,0 +1,12 @@
+<Stretch.ssm>
+	<params>
+	</params>
+	<node>
+		<name>	Pan_AsiaStretch	</name>
+		<type>	sequence	</type>
+		<resource>	PnFMods/GlobalStretchLean_Pan_Asia/animation/Pan_AsiaStretch.seq	</resource>
+		<isLoop>	true	</isLoop>
+		<loop>	-1	</loop>
+		<uiPosition>	0.0000 0.0000 0.0000	</uiPosition>
+	</node>
+</Stretch.ssm>
