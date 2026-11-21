@@ -138,7 +138,9 @@ function Receive-PlayerUpdate($layout, $package, $offer, [string]$folder) {
         $seen = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
         foreach ($entry in $zip.Entries) {
             $full = $entry.FullName
-            if (!$full.StartsWith("$playerBrand/", [StringComparison]::Ordinal) -or !$seen.Add($full)) { throw '更新包存在无效或重复路径。' }
+            if (!$seen.Add($full)) { throw '更新包存在重复路径。' }
+            if ($full -ceq '安装说明.txt') { continue }
+            if (!$full.StartsWith("$playerBrand/", [StringComparison]::Ordinal)) { throw '更新包存在无效路径。' }
             $relative = $full.Substring($playerBrand.Length + 1)
             if ($relative -cin $paths -or $relative -cin '','组件/') { continue }
             # Top-level guides are for manual installation and are never extracted by the updater.
