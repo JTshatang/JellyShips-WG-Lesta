@@ -34,9 +34,14 @@ function Import-SongBeatAnalyzer {
 
 function Get-MusicTrigger($value) {
     # Older profiles used Game for automatic playback.
-    if ($value -cin 'Battle', 'Game') { return 'Battle' }
+    if (!$value -or $value -cin 'Battle', 'Game') { return 'Battle' }
     if ($value -ceq 'Silent') { return 'Silent' }
     return 'Manual'
+}
+
+function Get-MusicPlayMode($value) {
+    if (!$value -or $value -ceq 'loop') { return 'loop' }
+    return 'once'
 }
 
 function Get-MusicVolume($value) {

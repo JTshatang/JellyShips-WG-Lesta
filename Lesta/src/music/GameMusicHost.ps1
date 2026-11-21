@@ -53,7 +53,7 @@ try {
         if (!(Test-ModEffectEnabled) -or !(Test-GameMusicPlayback $prefs)) { break }
         $trackId = Get-ConfiguredMusicTrackId $prefs $tracks[0].id
         $session.Mode = Get-MusicTrigger $prefs.trigger
-        $loop = $prefs.mode -ceq 'loop'
+        $loop = (Get-MusicPlayMode $prefs.mode) -ceq 'loop'
 
         if (!$client) {
             if ($now -ge $nextBuildCheck) {

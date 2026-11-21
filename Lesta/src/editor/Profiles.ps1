@@ -55,7 +55,7 @@ function New-PlayerProfile($name, $track, $motion, $values, $effects, $preferenc
         Values = $values; Effects = $effects; ManualBpm = $null
         Music = @{
             track = $track
-            mode = if ($preferences.mode -ceq 'loop') { 'loop' } else { 'once' }
+            mode = Get-MusicPlayMode $preferences.mode
             trigger = Get-MusicTrigger $preferences.trigger
             volume = Get-MusicVolume $preferences.volume
             pauseKey = Get-MusicKey $preferences.pauseKey
@@ -67,11 +67,11 @@ function New-PlayerProfile($name, $track, $motion, $values, $effects, $preferenc
 function Get-AppliedMusicProfile {
     if ($musicPreferences.profile) { return $musicPreferences.profile }
     $track = Get-ConfiguredMusicTrackId $musicPreferences $musicTracks[0].id
-    $mode = if ($musicPreferences.mode -ceq 'loop') { 'loop' } else { 'once' }
+    $mode = Get-MusicPlayMode $musicPreferences.mode
     $trigger = Get-MusicTrigger $musicPreferences.trigger
     $curve = Get-ShipMotionSettings $sequence.Curve | ConvertTo-Json -Depth 4 -Compress
     $matches = @($profileLibrary.Profiles | Where-Object {
-        $_.Music.track -ceq $track -and $_.Music.mode -ceq $mode -and $_.Music.trigger -ceq $trigger -and
+        $_.Music.track -ceq $track -and (Get-MusicPlayMode $_.Music.mode) -ceq $mode -and (Get-MusicTrigger $_.Music.trigger) -ceq $trigger -and
         $_.Effects -ceq $effectMode -and
         ($_.Values -join '|') -ceq ($saved -join '|') -and
         ((Get-ShipMotionSettings (Read-ShipMotion $_)) | ConvertTo-Json -Depth 4 -Compress) -ceq $curve
@@ -86,7 +86,7 @@ function Set-AppliedMusicVolume([int]$volume) {
     $preferences = @{
         profile = $id
         track = Get-ConfiguredMusicTrackId $musicPreferences $musicTracks[0].id
-        mode = if ($musicPreferences.mode -ceq 'loop') { 'loop' } else { 'once' }
+        mode = Get-MusicPlayMode $musicPreferences.mode
         trigger = Get-MusicTrigger $musicPreferences.trigger
         pauseKey = Get-MusicKey $musicPreferences.pauseKey
         playKey = Get-MusicKey $musicPreferences.playKey
@@ -216,7 +216,7 @@ function Show-ProfileDraft([int]$index) {
             if ($null -eq $bpm) { $bpm = $defaultBeatBpm }
             $profileBpm.Text = $bpm.ToString('R', $beatCulture)
             $errors.SetError($profileBpm, '')
-            $loopMode.Checked = $draft.Music.mode -ceq 'loop'
+            $loopMode.Checked = (Get-MusicPlayMode $draft.Music.mode) -ceq 'loop'
             $onceMode.Checked = !$loopMode.Checked
             $trigger = Get-MusicTrigger $draft.Music.trigger
             $battleTrigger.Checked = $trigger -ceq 'Battle'
