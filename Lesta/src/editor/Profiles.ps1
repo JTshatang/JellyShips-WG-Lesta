@@ -125,8 +125,13 @@ function Get-AvailableProfileName([string]$title, [string[]]$names) {
 }
 
 function Get-ProfileManualBpm($profile) {
-    if ($profile.ManualBpm -ge 1 -and $profile.ManualBpm -le 600) { return [double]$profile.ManualBpm }
-    if (!$profile.Music.track -and $profile.Bpm -ge 1 -and $profile.Bpm -le 600) { return [double]$profile.Bpm }
+    $bpm = $profile.ManualBpm -as [double]
+    if ($bpm -ge 1 -and $bpm -le 600) { return $bpm }
+    if (!$profile.Music.track) {
+        $bpm = $profile.Bpm -as [double]
+        if ($bpm -ge 1 -and $bpm -le 600) { return $bpm }
+    }
+    return $null
 }
 
 function Get-ProfileDraft {
