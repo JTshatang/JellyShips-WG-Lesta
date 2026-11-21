@@ -101,6 +101,7 @@ public sealed class BattleBeatLog
     private const string Prefix = ": INFO: [Script] ";
     private const string Mod = "[ModsAPI] [JellyShips20] ";
     private const string DockLoaded = "[Dock3DContext] onSpaceFinishLoading, ('dock',);";
+    private const string DrawNotice = "[UISync] [---] FPS limit set:";
     private const double OutputLatencySeconds = 0.055;
     private static readonly Regex World = new Regex(@"^\[BattleLogic\] (\d+); onEnterWorld\(\)");
     private readonly string path;
@@ -112,6 +113,7 @@ public sealed class BattleBeatLog
     private string partial = "";
     private long world;
     private long scene;
+    private long? firstBattleDraw;
     private long? start;
     private bool ownShip;
     private bool replay;
@@ -190,6 +192,7 @@ public sealed class BattleBeatLog
     {
         scene = 0;
         world = 0;
+        firstBattleDraw = null;
         start = null;
         ownShip = false;
         ended = false;
@@ -201,6 +204,7 @@ public sealed class BattleBeatLog
             return;
         string message = line.Substring(23 + Prefix.Length);
         if (!message.StartsWith("[Battle", StringComparison.Ordinal) &&
+            !message.StartsWith(DrawNotice, StringComparison.Ordinal) &&
             !message.StartsWith(DockLoaded, StringComparison.Ordinal) &&
             !message.StartsWith("[Avatar] -= BATTLE STARTED", StringComparison.Ordinal) &&
             !message.StartsWith("[PlayerAvatar] leave battle", StringComparison.Ordinal) &&
@@ -245,10 +249,15 @@ public sealed class BattleBeatLog
         {
             if (message.StartsWith(Mod + "own ship covered", StringComparison.Ordinal))
                 ownShip = true;
+            else if (!firstBattleDraw.HasValue && !start.HasValue &&
+                message.StartsWith(DrawNotice, StringComparison.Ordinal) &&
+                message.Contains("worldDrawEnabled: True, guiMode: 2)"))
+                firstBattleDraw = EventTicks(time);
             else if (!start.HasValue && message.StartsWith("[Avatar] -= BATTLE STARTED =-;", StringComparison.Ordinal))
             {
-                // 21's measured phase and the local output latency candidate.
-                start = EventTicks(time) + SecondsToTicks(0.137 - OutputLatencySeconds);
+                // The hull is already cycling during the countdown. Only open the
+                // playback gate now. Older logs can lack the battle-draw notice.
+                start = firstBattleDraw ?? (EventTicks(time) + SecondsToTicks(0.137 - OutputLatencySeconds));
             }
         }
     }
