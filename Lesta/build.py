@@ -114,7 +114,7 @@ def build(audio, output, ffmpeg):
     release = read_release()
     hashes = {}
     launcher_scripts = sorted((ROOT / "src/launcher").glob("*.ps1"))
-    if {script.name for script in launcher_scripts} != LAUNCHER_SCRIPTS:
+    if not LAUNCHER_SCRIPTS.issubset(script.name for script in launcher_scripts):
         raise ValueError("Launcher scripts do not match the player updater's component list")
     output.parent.mkdir(parents=True, exist_ok=True)
     with NamedTemporaryFile(dir=output.parent, suffix=".tmp", delete=False) as pending:
@@ -141,6 +141,7 @@ def build(audio, output, ffmpeg):
                 launcher = script.read_text(encoding="utf-8-sig").encode("utf-8-sig")
                 hashes[script.name] = sha256(launcher).hexdigest()
                 package.writestr(PORTAL + "组件/" + script.name, launcher)
+            package.write(ROOT / "安装说明.txt", PORTAL + "安装说明.txt")
             release["launcher_hashes"] = hashes
             package.writestr(PORTAL + "组件/package.json", json.dumps(release))
         with ZipFile(temp) as package:

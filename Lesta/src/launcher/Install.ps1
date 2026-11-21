@@ -4,6 +4,16 @@ $playerBrand = '莱斯塔-保持Q弹'
 $previousBrand = '整舰Q弹'
 . (Join-Path $PSScriptRoot 'PlayerData.ps1')
 
+function Get-LauncherProgramFiles($package) {
+    $launcherFiles
+    foreach ($name in $package.launcher_hashes.PSObject.Properties.Name) {
+        if ($name -in $launcherFiles -or $name -in "$playerBrand.exe",'资源包.zip') { continue }
+        if ($name -notmatch '^[\p{L}\p{N}_-][\p{L}\p{N}_. -]*\.ps1\z' -or
+            $name -match '^(CON|PRN|AUX|NUL|COM[1-9¹²³]|LPT[1-9¹²³])\.') { throw '发布清单包含无效的启动脚本名。' }
+        $name
+    }
+}
+
 function Get-PackageBrand([string]$folder) {
     if ([IO.File]::Exists((Join-Path $folder "$playerBrand.exe"))) { return $playerBrand }
     if ([IO.File]::Exists((Join-Path $folder "$previousBrand.exe"))) { return $previousBrand }

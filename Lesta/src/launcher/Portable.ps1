@@ -28,7 +28,7 @@ function Get-PortalSelection([string]$components) {
 function Assert-PortableProgram([string]$components, $package) {
     Assert-RegularPath $components
     if ($package.portable_format -ne 1) { throw '更新包缺少便携程序。' }
-    foreach ($name in $launcherFiles) {
+    foreach ($name in (Get-LauncherProgramFiles $package)) {
         $path = Join-Path $components $name
         Assert-RegularPath $path
         if (![IO.File]::Exists($path)) { throw "缺少启动组件：$name" }
@@ -49,7 +49,7 @@ function Copy-PortableProgram([string]$source, [string]$target, $package) {
     $stage = Join-Path $parent ('.program-' + [Guid]::NewGuid().ToString('N'))
     [void][IO.Directory]::CreateDirectory($stage)
     try {
-        foreach ($name in $launcherFiles) { [IO.File]::Copy((Join-Path $source $name), (Join-Path $stage $name)) }
+        foreach ($name in (Get-LauncherProgramFiles $package)) { [IO.File]::Copy((Join-Path $source $name), (Join-Path $stage $name)) }
         Assert-PortableProgram $stage $package
         Move-InstallFolder $stage $target
     } finally { Remove-InstallDirectory $parent $stage }
@@ -138,7 +138,7 @@ function Remove-PortableProgram([string]$portal, [string]$receiptHash) {
         $package = Read-InstallJson $manifest
         if ($package.portable_format -ne 1) { continue }
         $exeHashes += $package.launcher_hashes."$playerBrand.exe"
-        foreach ($name in $launcherFiles + @('资源包.zip')) {
+        foreach ($name in @(Get-LauncherProgramFiles $package) + @('资源包.zip')) {
             if ($name -eq 'package.json') { continue }
             $file = Join-Path $folder $name
             Assert-RegularPath $file

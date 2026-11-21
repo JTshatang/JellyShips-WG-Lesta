@@ -130,8 +130,20 @@ function Receive-PlayerUpdate($layout, $package, $offer, [string]$folder) {
     [void][IO.Directory]::CreateDirectory((Join-Path $folder '组件'))
     $zip = [IO.Compression.ZipFile]::OpenRead($download)
     try {
-        $paths = @("$playerBrand.exe") + @($launcherFiles + @('资源包.zip') | ForEach-Object { "组件/$_" })
-        if ($zip.Entries.Count -ne $paths.Count) { throw '自动更新需要完整的便携版玩家包。' }
+        $manifest = $zip.GetEntry("$playerBrand/组件/package.json")
+        if (!$manifest) { throw '更新包缺少发布清单。' }
+        $reader = [IO.StreamReader]::new($manifest.Open())
+        try { $meta = $reader.ReadToEnd() | ConvertFrom-Json } finally { $reader.Dispose() }
+        $paths = @("$playerBrand.exe") + @(@(Get-LauncherProgramFiles $meta) + @('资源包.zip') | ForEach-Object { "组件/$_" })
+        $seen = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+        foreach ($entry in $zip.Entries) {
+            $full = $entry.FullName
+            if (!$full.StartsWith("$playerBrand/", [StringComparison]::Ordinal) -or !$seen.Add($full)) { throw '更新包存在无效或重复路径。' }
+            $relative = $full.Substring($playerBrand.Length + 1)
+            if ($relative -cin $paths -or $relative -cin '','组件/') { continue }
+            # Top-level guides are for manual installation and are never extracted by the updater.
+            if ($relative -notmatch '^[^/\\:<>|"?*\x00-\x1f]+\.(txt|md)\z') { throw '更新包包含未声明的文件。' }
+        }
         $hashes = @{}
         foreach ($name in $paths) {
             $entry = $zip.GetEntry("$playerBrand/$name")
@@ -173,12 +185,15 @@ function Get-PendingPlayerUpdate($layout, $package, [string]$appRoot) {
         $installed = Get-InstallReceipt $layout
         if ((Compare-PlayerRelease $pending $installed) -lt 0 -or
             ($layout.Build -ceq $package.build -and (Compare-PlayerRelease $pending $package) -lt 0)) { return }
-        foreach ($name in @("$playerBrand.exe") + @($launcherFiles + @('资源包.zip') | ForEach-Object { "组件/$_" })) {
+        $manifest = Join-Path $folder '组件/package.json'
+        Assert-RegularPath $manifest
+        if ((Get-InstallHash $manifest) -ne $pending.Hashes.'组件/package.json') { return }
+        $meta = Read-InstallJson $manifest
+        foreach ($name in @("$playerBrand.exe") + @(@(Get-LauncherProgramFiles $meta) + @('资源包.zip') | ForEach-Object { "组件/$_" })) {
             $path = Join-Path $folder $name
             Assert-RegularPath $path
             if (![IO.File]::Exists($path) -or (Get-InstallHash $path) -ne $pending.Hashes.$name) { return }
         }
-        $meta = Read-InstallJson (Join-Path $folder '组件/package.json')
         if (!(Test-PlayerPackage $meta) -or $meta.build -cne $layout.Build -or $meta.revision -ne $pending.Revision -or
             [string]$meta.version -cne [string]$pending.Version -or [string]$meta.github_repository -ne [string]$package.github_repository) { return }
         return $folder
