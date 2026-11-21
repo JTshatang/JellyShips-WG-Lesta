@@ -346,7 +346,7 @@ if ($launcherSession) {
         finally { $dialog.Dispose() }
     })
     New-SettingsHeading $maintenancePage '卸载模组' 20 185 360
-    $uninstall = New-SettingsControl $maintenancePage Button '卸载保持Q弹…' 20 227 150 32
+    $uninstall = New-SettingsControl $maintenancePage Button '卸载Mod资源' 20 227 150 32
     $keepPlayer = New-SettingsControl $maintenancePage CheckBox '保留我的方案和歌曲' 189 227 220 32
     $keepPlayer.Checked = $true
     $uninstall.Add_Click({
